@@ -1,217 +1,150 @@
+import React, {useEffect, useState} from 'react';
 import {
+  Alert,
+  ActivityIndicator,
   StyleSheet,
   Text,
+  TextInput,
+  TouchableOpacity,
   TouchableHighlight,
   View,
-  TextInput,
-  ActivityIndicator,
-
+  Platform,
+  ToastAndroid,
 } from 'react-native';
-import React, {useState} from 'react';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import database from '@react-native-firebase/database';
 import auth from '@react-native-firebase/auth';
-import {jumlah} from './History.js';  
 
 export default function Pengeluaran({navigation}) {
-  const [datahistory, setdatahistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [jumlah, setJumlah] = useState(0);
-  const [Pengeluaran, OnChangeEmail] = useState('Email');
+  const [amount, setAmount]   = useState('');
+  const [idBank, setIdBank]   = useState('');
+  const [sending, setSending] = useState(false);
 
-
-
-  React.useEffect(() => {
-    const fetchHistory = async () => {
-      // Ambil UID dari user
-      const uid = auth().currentUser.uid;
-
-      try {
-        // Ambil ID Bank Note berdasarkan UID user
-        const fetchIdBankNote = await database()
-          .ref(`users/${uid}`)
-          .once('value');
-
-        // Setelah ID Bank Note diambil, baca data history berdasarkan ID Bank Note tersebut
-        if (fetchIdBankNote.val().IDBankNotes) {
-          const IDBankNotes = fetchIdBankNote.val().IDBankNotes;
-          const fetchHistoryData = await database()
-            .ref(`BankNotes/${IDBankNotes}`)
-            .once('value');
-
-          let hitungJumlah = 0;
-          let historyDataTemp = [];
-          console.log('Fetch History: ', fetchHistoryData.val());
-          for (const itemHistory in fetchHistoryData.val()) {
-            // hitungJumlah += fetchHistoryData.val()[itemHistory].nominal;
-            const item = fetchHistoryData.val()[itemHistory];
-            item.id = itemHistory;
-            const nominalNoDot = Number(item.nominal.replace(/[.]+/g, ''));
-            hitungJumlah += nominalNoDot;
-            historyDataTemp.push(item);
-          }
-
-          const jumlahRupiah = hitungJumlah
-            .toFixed(2)
-            .replace(/\d(?=(\d{3})+\.)/g, '$&,');
-          setdatahistory(historyDataTemp);
-          setJumlah(jumlahRupiah);
-          setLoading(false);
-
-        //  const warnaKalender = {};
-        //   for (const itemHistory in fetchHistoryData.val()) {
-        //     warnaKalender[`${itemHistory.tanggal}`] = {
-        //       color: fetchHistoryData.val()[itemHistory].warna, // itemHistory.warna,
-        //       startingDay: true,
-        //       endingDay: true,
-        //       textColor: 'black',
-        //     };
-        //   }
-
-          // console.log('Warna Kalender: ', warnaKalender);
-          // setDataKalender(warnaKalender);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchHistory();
+  /* ───── ambil ID BankNote sekali ───── */
+  useEffect(() => {
+    const uid = auth().currentUser.uid;
+    database()
+      .ref(`users/${uid}`)
+      .once('value')
+      .then(s => setIdBank(s.val().IDBankNotes))
+      .catch(console.error);
   }, []);
 
-  console.log('Data History: ', datahistory);
+  /* ───── fungsi toast (Android) / alert (iOS) singkat ───── */
+  const toast = msg => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(msg, ToastAndroid.SHORT);
+    } else {
+      Alert.alert('Info', msg);
+    }
+  };
 
+  /* ───── simpan WD dengan pengecekan saldo ───── */
+  const handleWithdraw = async () => {
+    if (!amount) {
+      toast('Masukkan nominal terlebih dahulu');
+      return;
+    }
+
+    const amountNum = Number(amount.replace(/\./g, ''));
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast('Nominal tidak valid');
+      return;
+    }
+
+    setSending(true);
+    try {
+      /* hitung saldo terkini */
+      const snap = await database()
+        .ref(`BankNotes/${idBank}`)
+        .once('value');
+
+      let saldo = 0;
+      snap.forEach(s => {
+        const item    = s.val();
+        const nominal = Number(item.nominal?.replace(/\./g, '') || 0);
+        saldo += item.isWd ? -nominal : nominal;
+      });
+
+      if (amountNum > saldo) {
+        toast('Saldo tidak mencukupi');
+        setSending(false);
+        return;
+      }
+
+      /* saldo cukup → simpan */
+      const ref  = database().ref(`BankNotes/${idBank}`).push();
+      const now  = new Date();
+      const waktu= now.toLocaleDateString('en-GB') +
+                   ' ' +
+                   now.toLocaleTimeString('en-GB');
+
+      await ref.set({
+        nominal : amount,
+        waktu,
+        isWd    : true,
+        warna   : '#FF7676',
+      });
+
+      setAmount('');
+      setSending(false);
+      navigation.navigate('History');
+    } catch (e) {
+      console.error(e);
+      toast('Terjadi kesalahan, coba lagi');
+      setSending(false);
+    }
+  };
+
+  /* ───── UI ───── */
   return (
-    <View style={styles.Container}>
-      <TouchableHighlight
-        style={styles.Bars}
-        onPress={() => navigation.openDrawer()}>
-        <FontAwesome5 name={'bars'} size={25} color="white" />
+    <View style={styles.container}>
+      <TouchableHighlight style={styles.bars} onPress={navigation.openDrawer}>
+        <FontAwesome5 name="bars" size={25} color="#fff" />
       </TouchableHighlight>
-      <Text style={styles.Text0}>WELCOME TO</Text>
-      <Text style={styles.Text1}>SMART BANKNOTES</Text>
-      {/* <Text style={styles.Text2}>BANKNOTES</Text> */}
-      <Text style={styles.Text3}>Withdraw </Text>
-      <View style={styles.Balance}>
-        <View style={styles.Total}>
-          <Text style={styles.Text4}>Input Withdraw</Text>
-        </View>
-        <View style={styles.Total}>
+
+      <Text style={styles.h1}>WELCOME TO</Text>
+      <Text style={styles.h2}>SMART BANKNOTES</Text>
+      <Text style={styles.subtitle}>Withdraw</Text>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Input Withdraw</Text>
         <TextInput
-        style={styles.Pengeluaran}
-        placeholder="Nominal"
-        placeholderTextColor="white"
-        onChangeText={text => OnChangeEmail(text)}
-        keyboardType="email-address"
-      />
-        </View>
+          style={styles.input}
+          placeholder="Nominal (contoh: 10000)"
+          placeholderTextColor="#ccc"
+          keyboardType="numeric"
+          value={amount}
+          onChangeText={txt => setAmount(txt.replace(/[^0-9]/g, ''))}
+        />
+
+        <TouchableOpacity
+          style={[styles.btn, (sending || !amount) && {opacity: 0.5}]}
+          onPress={handleWithdraw}
+          disabled={sending || !amount || !idBank}>
+          {sending
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.btnText}>Withdraw</Text>}
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
+/* ───── Styles ───── */
 const styles = StyleSheet.create({
-  Container: {
-    flex: 1,
-    backgroundColor: '#040D12',
-  },
-  Bars: {
-    height: 35,
-    width: 35,
-    marginTop: 20,
-    marginLeft: 20,
-    backgroundColor: '#1d2b3a',
-    paddingLeft: 7,
-    paddingTop: 4,
-    borderRadius: 10,
-  },
-  shadow: {
-    width: 320,
-    height: 50,
-    width: '90%',
-    height: '10%',
-    borderRadius: 100,
-    marginTop: -30,
-    paddingTop: 10,
-    marginLeft: 22,
-    shadowColor: '#000000',
-    shadowOffset: {height: 4, width: 0},
-    shadowOpacity: 1,
-    elevation: 15,
-  },
-  Text0: {
-    marginTop: 10,
-    fontFamily: 'fantasy',
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#A2FF86',
-    textAlign: 'center',
-  },
-  Text1: {
-    marginTop: -9,
-    fontFamily: 'fantasy',
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
-  },
-  Text2: {
-    fontFamily: 'fantasy',
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: 'black',
-    textAlign: 'center',
-  },
-  Text3: {
-    fontFamily: 'FasterOne-Regular',
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#A2FF86',
-    textAlign: 'center',
-  },
-  Text4: {
-    fontFamily: 'monospace',
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginTop: 15,
-    marginLeft: 10,
-    textAlign: 'center',
-  },
-  Text5: {
-    fontFamily: 'monospace',
-    fontSize: 15,
-    fontWeight: 'bold',
-    alignSelf: 'center',
-    color: 'white',
-    marginTop: 10,
-    marginLeft: 10,
-  },
-  Balance: {
-    height: 130,
-    width: 250,
-    marginTop: 10,
-    backgroundColor: '#1d2b3a',
-    alignSelf: 'center',
-    borderRadius: 15,
-  },
-  Total: {
-    height: 70,
-    width: 290,
-    alignSelf: 'center',
-    marginTop: 3,
-  },
-  Pengeluaran: {
-    color: 'white',
-    backgroundColor: '#1d2b3a',
-    height: 50,
-    width: 300,
-    alignSelf: 'center',
-    marginTop: 20,
-    marginBottom: 15,
-    borderRadius: 50,
-    fontFamily: 'FasterOne-Regular',
-    fontSize: 15,
-    paddingLeft: 20,
-    paddingBottom: 10,
-  },
+  container:{flex:1,backgroundColor:'#040D12'},
+  bars:{height:35,width:35,margin:20,backgroundColor:'#1d2b3a',
+        borderRadius:10,alignItems:'center',justifyContent:'center'},
+  h1:{marginTop:10,fontSize:30,color:'#A2FF86',fontWeight:'bold',textAlign:'center'},
+  h2:{fontSize:40,color:'#fff',fontWeight:'bold',textAlign:'center',marginTop:-5},
+  subtitle:{fontSize:28,color:'#A2FF86',fontWeight:'bold',textAlign:'center',marginTop:10},
+  card:{backgroundColor:'#1d2b3a',borderRadius:15,padding:20,
+        alignSelf:'center',marginTop:30,width:'80%'},
+  cardTitle:{fontSize:18,color:'#fff',fontWeight:'bold'},
+  input:{backgroundColor:'#040D12',color:'#fff',
+         borderRadius:8,padding:12,marginTop:15},
+  btn:{backgroundColor:'#A2FF86',borderRadius:20,
+       paddingVertical:10,marginTop:20,alignItems:'center'},
+  btnText:{color:'#040D12',fontWeight:'bold',fontSize:16},
 });

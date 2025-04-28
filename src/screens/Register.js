@@ -1,194 +1,114 @@
 import React, {useState} from 'react';
 import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
-  View,
   TextInput,
+  ToastAndroid,
   TouchableHighlight,
-  Alert
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 
 export default function Register({navigation}) {
-  const [Email, OnChangeEmail] = useState('Email');
-  const [IDBankNotes, OnChangeIDBankNotes] = useState('ID BankNotes');
-  const [Password, OnchangePassword] = useState('Password');
-  const [ConfirmPassword, OnchangeConfirmPassword] =
-    useState('Confirm Password');
+  const [email,  setEmail]  = useState('');
+  const [idBN,   setIdBN]   = useState('');
+  const [pass,   setPass]   = useState('');
+  const [pass2,  setPass2]  = useState('');
 
-  const SignUp = () => {
-    if (Password.trim() === ConfirmPassword.trim()) {
-      auth()
-        .createUserWithEmailAndPassword(Email, Password.trim())
-        .then(response => {
-          console.log('User terdaftar!');
-          const uid = response.user.uid;
-          database()
-            .ref(`users/${uid}`)
-            .set({
-              IDBankNotes,
-            })
-            .then(() => {
-              console.log('ID BankNotes ditambahkan ke firestore!');
-            })
-            .catch(console.error);
-        })
-        .catch(err => {
-          if (err.code === 'auth/email-already-in-use') {
-            Alert.alert('Error Sign Up', 'Email sudah terdaftar sebelumnya');
-          } else if (err.code === 'auth/invalid-email') {
-            Alert.alert('Error Sign Up', 'Email tidak valid');
-          } else if (err.code === 'auth/weak-password') {
-            Alert.alert('Error Sign Up', 'Password belum kuat.');
-          }
-        });
-    } else {
-      Alert.alert('Error Sign Up', 'Password tidak sama.');
+  const toast = msg =>
+    Platform.OS === 'android'
+      ? ToastAndroid.show(msg, ToastAndroid.SHORT)
+      : Alert.alert('Info', msg);
+
+  const onRegister = async () => {
+    if (!email || !idBN || !pass || !pass2) return toast('Lengkapi semua data');
+    if (pass !== pass2) return toast('Password tidak sama');
+
+    try {
+      const cred = await auth().createUserWithEmailAndPassword(email.trim(), pass);
+      await database().ref(`users/${cred.user.uid}`).set({
+        email, IDBankNotes: idBN,
+      });
+      toast('Registrasi berhasil, silakan login');
+      navigation.goBack();
+    } catch (e) {
+      toast(e.message);
     }
   };
 
   return (
-    <View style={styles.Container}>
-      <Text style={styles.Text1}>Create Account</Text>
-      <TextInput
-        style={styles.Username}
-        placeholder="Email"
-        placeholderTextColor="black"
-        onChangeText={text => OnChangeEmail(text)}
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.Code}
-        placeholder="ID Banknotes"
-        placeholderTextColor="black"
-        onChangeText={text => OnChangeIDBankNotes(text)}
-        keyboardType="email-address"
-      />
-      <TextInput
-        style={styles.password}
-        placeholder="Password"
-        placeholderTextColor="black"
-        onChangeText={text => OnchangePassword(text)}
-        secureTextEntry={true}
-      />
-      <TextInput
-        style={styles.password}
-        placeholder="Confirm Password"
-        placeholderTextColor="black"
-        onChangeText={text => OnchangeConfirmPassword(text)}
-        secureTextEntry={true}
-      />
-      <TouchableHighlight style={styles.login} onPress={SignUp}>
-        <Text style={styles.Text3}>Register</Text>
-      </TouchableHighlight>
-      <View style={{flexDirection: 'row', alignSelf: 'center'}}>
-        <Text style={styles.Register}>Already have an account?</Text>
-        <TouchableHighlight
-          style={styles.Tombol1}
-          onPress={() => navigation.navigate('Login')}>
-          <Text style={[styles.Register, {color: '#FF0000'}]}> SIGN IN</Text>
-        </TouchableHighlight>
-      </View>
-    </View>
+    <KeyboardAvoidingView
+      style={{flex:1}}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled">
+          <Text style={styles.h1}>Create</Text>
+          <Text style={styles.h2}>Account</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#666"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="ID Banknotes"
+            placeholderTextColor="#666"
+            value={idBN}
+            onChangeText={setIdBN}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#666"
+            secureTextEntry
+            value={pass}
+            onChangeText={setPass}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Re-type Password"
+            placeholderTextColor="#666"
+            secureTextEntry
+            value={pass2}
+            onChangeText={setPass2}
+          />
+
+          <TouchableHighlight style={styles.btn} onPress={onRegister}>
+            <Text style={styles.btnTxt}>SIGN UP</Text>
+          </TouchableHighlight>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  Container: {
-    flex: 1,
-    backgroundColor: '#1d2b3a',
-  },
-  TextRegister: {
-    marginTop: 50,
-    marginLeft: 30,
-    fontFamily: 'Poppins-Bold',
-    fontSize: 30,
-    color: 'white',
-  },
-  Text1: {
-    marginTop: 100,
-    fontFamily: 'cursive',
-    fontWeight: 'bold',
-    fontSize: 90,
-    color: 'black',
-    textAlign: 'center',
-    color: 'white',
-  },
-  Text3: {
-    fontFamily: 'FasterOne-Regular',
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: 'black',
-    textAlign: 'center',
-  },
-  Username: {
-    color: 'black',
-    backgroundColor: 'white',
-    height: 50,
-    width: 300,
-    alignSelf: 'center',
-    marginTop: 75,
-    marginBottom: 15,
-    borderRadius: 50,
-    fontFamily: 'Poppins-Bold',
-    fontSize: 15,
-    paddingLeft: 20,
-    paddingBottom: 10,
-  },
-  password: {
-    color: 'black',
-    backgroundColor: 'white',
-    height: 50,
-    width: 300,
-    alignSelf: 'center',
-    marginTop: 5,
-    marginBottom: 15,
-    borderRadius: 50,
-    borderRadius: 50,
-    fontFamily: 'Poppins-Bold',
-    fontSize: 15,
-    paddingLeft: 20,
-    paddingBottom: 13,
-  },
-  Code: {
-    color: 'black',
-    backgroundColor: 'white',
-    height: 50,
-    width: 300,
-    alignSelf: 'center',
-    marginTop: 5,
-    marginBottom: 15,
-    borderRadius: 50,
-    fontFamily: 'Poppins-Bold',
-    fontSize: 15,
-    paddingLeft: 20,
-    paddingBottom: 10,
-  },
-  login: {
-    backgroundColor: '#A2FF86',
-    height: 50,
-    width: 100,
-    alignSelf: 'center',
-    marginTop: 15,
-    marginBottom: 15,
-    borderRadius: 50,
-    justifyContent: 'center',
-  },
-  Register: {
-    fontFamily: 'Poppins-Bold',
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
-  },
-  Tombol1: {
-    width: 75,
-    height: 20,
-    backgroundColor: '#1d2b3a',
-    marginTop: -1,
-    alignSelf: 'center',
-    justifyContent: 'center',
-    borderRadius: 5,
-  },
+  scroll:{flexGrow:1,justifyContent:'center',alignItems:'center',
+          backgroundColor:'#1d2b3a',paddingBottom:40},
+  h1:{fontSize:75,fontFamily:'cursive',fontWeight:'bold',color:'#fff',
+      marginTop:-120},
+  h2:{fontSize:75,fontFamily:'cursive',fontWeight:'bold',color:'#fff',
+      marginTop:-15,marginBottom:20},
+  input:{backgroundColor:'#fff',width:300,height:50,borderRadius:50,
+         paddingLeft:20,fontSize:15,marginTop:15,color:'#000'},
+  btn:{backgroundColor:'#A2FF86',width:120,height:50,borderRadius:50,
+       justifyContent:'center',alignItems:'center',marginTop:30},
+  btnTxt:{fontFamily:'monospace',fontWeight:'bold',color:'#000'},
 });
