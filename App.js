@@ -3,6 +3,11 @@ import 'react-native-gesture-handler';   // harus di baris pertama
 import React from 'react';
 import {Text, TextInput, Platform} from 'react-native';
 import Navigation from './src/Navigation/Navigation';
+import {LogBox} from 'react-native';
+LogBox.ignoreLogs([
+  'Warning: Can\'t perform a React state update on an unmounted component',
+]);
+
 
 /* ---------- GLOBAL FONT SETUP ---------- */
 // siapkan objek defaultProps jika belum ada

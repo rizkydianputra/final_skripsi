@@ -11,34 +11,32 @@ import {
   Text,
   TextInput,
   ToastAndroid,
+  TouchableOpacity,
   TouchableHighlight,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 
-/*  hitung font responsif  */
+/* -------- ukuran judul responsif -------- */
 const {width} = Dimensions.get('window');
-const TITLE    = Math.round(width * 0.22);   // ≈ 22 % lebar layar
-const LINE     = TITLE + 4;                  // line-height
+const TITLE = Math.round(width * 0.16);   // 16 % lebar layar
+const LINE  = TITLE + 4;
 
 export default function Login({navigation}) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
 
-  /* toast helper */
   const toast = msg =>
     Platform.OS === 'android'
       ? ToastAndroid.show(msg, ToastAndroid.SHORT)
       : Alert.alert('Info', msg);
 
-  /* login */
   const onLogin = () =>
     auth()
       .signInWithEmailAndPassword(email.trim(), password.trim())
       .catch(e => toast(e.message));
 
-  /* reset password */
   const onForgot = () => {
     if (!email) return toast('Masukkan email terlebih dulu');
     auth()
@@ -96,13 +94,16 @@ export default function Login({navigation}) {
             <Text style={styles.btnTxt}>SIGN IN</Text>
           </TouchableHighlight>
 
+          {/* footer register */}
           <View style={styles.row}>
             <Text style={styles.register}>Don't have an account?</Text>
-            <TouchableHighlight
+            <TouchableOpacity
               onPress={() => navigation.navigate('Register')}
-              underlayColor="#1d2b3a">
-              <Text style={[styles.register, {color: 'red'}]}> SIGN UP</Text>
-            </TouchableHighlight>
+              activeOpacity={0.7}
+              hitSlop={{top:10,bottom:10,left:10,right:10}}
+              style={styles.signUpWrap}>
+              <Text style={styles.signUp}> SIGN UP</Text>
+            </TouchableOpacity>
           </View>
 
           {/* piggy bank kanan-bawah */}
@@ -117,6 +118,7 @@ export default function Login({navigation}) {
   );
 }
 
+/* -------- STYLES -------- */
 const styles = StyleSheet.create({
   root:{flex:1,backgroundColor:'#1d2b3a'},
   wrap:{flexGrow:1,alignItems:'center',paddingBottom:40,paddingTop:100},
@@ -124,14 +126,14 @@ const styles = StyleSheet.create({
   /* piggy bank */
   pigTop:{position:'absolute',top:-10,left:-50,width:230,height:230},
   pigBottom:{width:220,height:220,alignSelf:'flex-end',
-             marginTop:-40,marginRight:-40,marginBottom:-40},
+             marginTop:40,marginRight:-40,marginBottom:-40},
 
-  /* judul & tagline */
-  h1:{fontSize:65,fontFamily:'Poppins-Bold',color:'#fff',
+  /* judul */
+  h1:{fontSize:TITLE,fontFamily:'Poppins-Bold',color:'#fff',
       lineHeight:LINE,marginTop:0},
-  h2:{fontSize:65,fontFamily:'Poppins-Bold',color:'#fff',
+  h2:{fontSize:TITLE,fontFamily:'Poppins-Bold',color:'#fff',
       lineHeight:LINE,marginTop:-6},
-  tag:{fontSize:26,fontFamily:'Poppins-Regular',color:'#A2FF86',
+  tag:{fontSize:18,fontFamily:'Poppins-Regular',color:'#A2FF86',
        marginBottom:25},
 
   /* form */
@@ -149,5 +151,6 @@ const styles = StyleSheet.create({
   /* footer */
   row:{flexDirection:'row',alignItems:'center',marginTop:25},
   register:{fontFamily:'Poppins-Regular',color:'#fff',fontSize:15},
+  signUpWrap:{paddingHorizontal:4},
+  signUp:{fontFamily:'Poppins-Bold',color:'red',fontSize:15},
 });
-
